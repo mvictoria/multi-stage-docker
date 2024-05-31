@@ -4,7 +4,18 @@ import app
 
 
 def main():
-    args = [int(x) for x in sys.argv[1:]]
+    args_in = sys.argv[1:]
+
+    if len(args_in) == 0:
+        print("Please enter at least one integer")
+        return None
+
+    try:
+        args = [int(x) for x in args_in]
+    except ValueError:
+        print("Please enter a valid list of integers")
+        return None
+
     print(app.addition(*args))
 
 
