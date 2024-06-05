@@ -1,9 +1,13 @@
 # The builder image, used to build the virtual environment
-FROM python:3.12 as builder
+FROM python:3.12-alpine as base
+RUN apk update && apk upgrade && rm /var/cache/apk/*
+RUN python3 -m pip install --upgrade pip
 
-RUN pip install uv
 
-RUN uv pip install --system poetry==1.8.3
+#-------------------------------------------------------------------------------
+FROM base as builder
+
+RUN pip install uv && uv pip install --system poetry==1.8.3
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
@@ -17,27 +21,26 @@ COPY ./app ./app
 RUN poetry build
 
 
-# a new docker image to test - not necessary, does it help anything?
-FROM builder as test
-
-RUN uv pip install --system pytest
-RUN uv pip install --system ./dist/app-0.1.0-py3-none-any.whl
+#-------------------------------------------------------------------------------
+# run tests
+RUN uv pip install --system pytest ./dist/*.whl
 
 COPY ./tests ./tests
 RUN pytest ./tests
 
 
+#-------------------------------------------------------------------------------
 # create actual runtime image
-FROM python:3.12-slim as runtime
+FROM base as runtime
 
 COPY --from=builder ./dist ./dist
 
-RUN pip install ./dist/app-0.1.0-py3-none-any.whl
+RUN pip install ./dist/*.whl
 
-RUN groupadd -g 1001 python_application && \
-    useradd -r -u 1001 -g python_application python_application
+# create app user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-USER 1001
+USER appuser
 
 ENTRYPOINT [ "my-script" ]
 CMD ["my-script",""]
